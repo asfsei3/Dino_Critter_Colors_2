@@ -143,7 +143,7 @@ function toFriendlyError(message) {
   }
 
   if (message.includes('Gemini did not return')) {
-    return '画像を つくれませんでした。テーマを少し かんたんにして、もういちど試してください。';
+    return '画像を つくれませんでした。てーまを少し かんたんにして、もういちど試してください。';
   }
 
   return 'うまく つくれませんでした。少し待ってから、もういちど試してください。';

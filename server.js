@@ -129,7 +129,6 @@ function sanitizeOptions(body = {}) {
   const allowedBackgrounds = ['None', 'Light', 'Rich'];
   const allowedAges = ['0-2 years old', '3-4 years old', '5-6 years old', '7+ years old', 'Adults'];
   const allowedDifficulties = ['easy', 'normal', 'detailed'];
-  const allowedStoryModes = ['none', 'gentle', 'adventure'];
   const allowedOrientations = ['portrait', 'landscape'];
 
   const category = pick(allowedCategories, body.category, 'dinosaurs');
@@ -148,7 +147,6 @@ function sanitizeOptions(body = {}) {
     backgroundAmount: pick(allowedBackgrounds, body.backgroundAmount, 'Rich'),
     ageLevel: pick(allowedAges, body.ageLevel, '3-4 years old'),
     difficulty: pick(allowedDifficulties, body.difficulty, 'easy'),
-    storyMode: pick(allowedStoryModes, body.storyMode, 'none'),
     orientation: pick(allowedOrientations, body.orientation, 'portrait')
   };
 }
@@ -214,19 +212,24 @@ function buildColoringPrompt(options, offset) {
 
   const difficultyGuidance = {
     easy:
-      'Difficulty: very easy and easy to color. Use very thick bold outlines, much fewer tiny details, very large coloring spaces, simple scene composition, large rounded shapes, less busy background, and only a few clear scene elements. Avoid small textures, dense patterns, crowded objects, and complicated overlapping forms. This easy mode should visibly look simpler, cleaner, and more spacious than normal mode. If line thickness or background settings conflict, prioritize easy coloring, thick lines, and a less busy scene.',
+      'Difficulty: easy coloring page. Use extra-thick black outlines, very few tiny details, very large open coloring spaces, simple and uncluttered scene composition, large rounded shapes, and a less busy background. Avoid dense textures, small patterns, crowded objects, and complicated overlapping forms. This easy mode must visibly look much simpler, cleaner, and more spacious than normal mode. If line thickness or background settings conflict, prioritize easy coloring, thick lines, and a less busy scene.',
     normal:
-      'Difficulty: normal and balanced. Use medium-thick readable outlines, balanced detail, clear shapes, moderate coloring spaces, and a comfortable number of scene elements.',
+      'Difficulty: balanced coloring page. Use medium-thick black outlines, balanced detail, clear shapes, moderate coloring spaces, and a comfortable number of scene elements.',
     detailed:
-      'Difficulty: detailed. Use thinner clean outlines, richer colorable details, more scene elements, varied textures, smaller parts are allowed, and the background can be more complex. This detailed mode should visibly look richer and more intricate than normal mode, while still staying printable and not cluttered. If line thickness or background settings conflict, allow finer lines and richer details for this mode.'
+      'Difficulty: detailed realistic coloring page. Use thinner clean black outlines, richer colorable details, more scene elements, realistic contour details, varied line textures, and smaller parts are allowed. The result may resemble a high-quality wildlife or dinosaur coloring book page, but it must still be pure black-and-white outline art only. No grayscale rendering, no tonal shading, no photo look, no color. If line thickness or background settings conflict, allow finer lines and richer details for this mode.'
   };
 
-  const storyGuidance = {
-    none: '',
-    gentle:
-      'Story mode: gentle story. Make the scene feel like a calm warm picture-book moment, such as family, friends, nesting, playing gently, resting together, sharing, or helping each other.',
-    adventure:
-      'Story mode: safe adventure. Make the scene feel adventurous but child-safe, such as exploring a jungle, crossing a shallow river, discovering eggs, following footprints, or walking through a forest. Keep all action friendly and non-dangerous.'
+  const styleGuidance = {
+    Realistic:
+      'Style meaning for "realistic": create a realistic black-and-white coloring book page, not a realistic color image and not a photo. Use more realistic anatomy, natural proportions, natural poses, and accurate reference-like forms. Reduce cartoon, anime, mascot, chibi, sticker, and overly cute exaggeration. Keep faces friendly and non-threatening, but make the subject feel like a real animal, real dinosaur, real vehicle, real plant, or realistic reference converted into clean line art.',
+    'Storybook style':
+      'Style meaning for storybook: gentle picture-book line art, still only black outlines on white background.',
+    'Simple line art':
+      'Style meaning for easy/simple: very clean, uncluttered, easy-to-color black outline drawing.',
+    'Cute style':
+      'Style meaning for cute: friendly and soft, but still a true black-and-white coloring page, not a colored cute illustration.',
+    'Encyclopedia style':
+      'Style meaning for encyclopedia: reference-like educational black-and-white line art with clear forms and accurate details, never a color plate or photo.'
   };
 
   const orientationGuidance = {
@@ -239,24 +242,34 @@ function buildColoringPrompt(options, offset) {
   const safetyGuidance =
     'Always make the page child-safe, friendly, and not scary. Use gentle expressions, non-threatening faces, soft safe atmosphere, no aggressive poses, no horror feeling, no angry faces, no danger, and do not emphasize sharp scary teeth or claws. This applies to every category, especially dinosaurs, wild animals, sea creatures, and adventure scenes.';
 
+  const coloringPageRules = [
+    'ABSOLUTE OUTPUT RULE: the image must be a true printable coloring page only.',
+    'Use pure black outlines on a plain white background only.',
+    'Strictly black and white only. No color anywhere. No colored illustration. No realistic color image. No photo rendering.',
+    'No grayscale painting, no gray wash, no tonal shading, no colored shadows, no gradients, no watercolor, no marker fill, no 3D rendering, no realistic lighting.',
+    'Use clean printable line art with open white areas for children to color using crayons or pencils.',
+    'The page should look like professional coloring book artwork: black contour lines, interior detail lines, white paper, no filled color regions.',
+    'If any other instruction conflicts with these coloring-page rules, these black-and-white line-art rules override everything.'
+  ].join(' ');
+
   return [
-    'Create a black and white printable coloring book page for kids.',
+    coloringPageRules,
+    'Create one professional black-and-white printable coloring book page for kids.',
     `Theme: ${options.theme}.`,
     `Category: ${options.category}. ${categoryGuidance[options.category]}`,
     `Main character count: exactly ${options.characterCount} important colorable main subjects in the scene.`,
     `Page variation number: ${offset + 1}. Make this page composition distinct from the others.`,
-    `Art style: ${options.style}.`,
+    `Art style: ${options.style}. ${styleGuidance[options.style]}`,
     `Line thickness: ${options.lineThickness}.`,
     `Background amount: ${options.backgroundAmount}. ${backgroundGuidance[options.backgroundAmount]}`,
     `Age level: ${options.ageLevel}; use ${ageGuidance[options.ageLevel]}.`,
     difficultyGuidance[options.difficulty],
     orientationGuidance[options.orientation],
-    storyGuidance[options.storyMode],
     safetyGuidance,
     options.extraRequest ? `Additional request: ${options.extraRequest}.` : '',
     'The result must be one complete cohesive scene, not isolated stickers, not clip art, not a collage, not comic panels.',
-    'Use clean bold outlines, white fill areas, no gray shading, no color, no text, no letters, no watermark, no frame, no cropped main subjects.',
-    'Make the scene happy, gentle, safe, and suitable for children.'
+    'Final check before generating: black outlines only, white background only, no colors, no grayscale shading, no photo style, no painted rendering, no text, no letters, no watermark, no frame, no cropped main subjects.',
+    'Make the scene happy, gentle, safe, suitable for children, and ready to print as a coloring worksheet.'
   ]
     .filter(Boolean)
     .join(' ');
