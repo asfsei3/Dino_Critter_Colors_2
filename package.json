@@ -1,0 +1,20 @@
+{
+  "name": "dino-critter-colors",
+  "version": "1.0.0",
+  "description": "A simple Gemini-powered coloring page generator for kids.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google/genai": "^1.35.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "pdfkit": "^0.17.2"
+  }
+}

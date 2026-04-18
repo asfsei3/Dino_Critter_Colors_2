@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ぬりえメーカー</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="pageTitle">
+        <div class="hero-content">
+          <p class="eyebrow">おうち・園・クリニックで使える ぬりえづくり</p>
+          <h1 id="pageTitle">ぬりえメーカー</h1>
+          <p class="hero-copy">せかいにひとつだけの ぬりえを つくろう！ 印刷してすぐに楽しめます。</p>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="ぬりえメーカー">
+        <form id="generatorForm" class="panel">
+          <div class="section-heading">
+            <p>つくりたい ぬりえ</p>
+            <h2>どんな ぬりえにする？</h2>
+          </div>
+
+          <div class="field-group">
+            <label>しゅるい</label>
+            <div class="segmented category-grid" role="radiogroup" aria-label="しゅるい">
+              <input id="catDino" type="radio" name="category" value="dinosaurs" checked />
+              <label for="catDino"><span>🦖</span>きょうりゅう</label>
+              <input id="catAnimals" type="radio" name="category" value="animals" />
+              <label for="catAnimals"><span>🐘</span>どうぶつ</label>
+              <input id="catVehicles" type="radio" name="category" value="vehicles" />
+              <label for="catVehicles"><span>🚗</span>のりもの</label>
+              <input id="catNature" type="radio" name="category" value="nature" />
+              <label for="catNature"><span>🌷</span>はな・しぜん</label>
+              <input id="catSea" type="radio" name="category" value="sea" />
+              <label for="catSea"><span>🐠</span>うみのいきもの</label>
+              <input id="catPrincess" type="radio" name="category" value="princess" />
+              <label for="catPrincess"><span>🏰</span>おひめさま・おしろ</label>
+              <input id="catFree" type="radio" name="category" value="free" />
+              <label for="catFree"><span>✏️</span>じゆう</label>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>ふんいき</span>
+              <select name="style">
+                <option value="Realistic">リアル</option>
+                <option value="Storybook style" selected>えほんふう</option>
+                <option value="Simple line art">シンプル</option>
+                <option value="Cute style">かわいい</option>
+                <option value="Encyclopedia style">ずかんふう</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>ねんれい</span>
+              <select name="ageLevel">
+                <option value="0-2 years old">0〜2さい</option>
+                <option value="3-4 years old" selected>3〜4さい</option>
+                <option value="5-6 years old">5〜6さい</option>
+                <option value="7+ years old">7さい〜</option>
+                <option value="Adults">おとな</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="gentle-options" aria-label="やさしさとおはなしの設定">
+            <div class="field">
+              <span>むずかしさ</span>
+              <div class="segmented difficulty" role="radiogroup" aria-label="むずかしさ">
+                <input id="difficultyEasy" type="radio" name="difficulty" value="easy" checked />
+                <label for="difficultyEasy">かんたん<br /><small>2〜4さい</small></label>
+                <input id="difficultyNormal" type="radio" name="difficulty" value="normal" />
+                <label for="difficultyNormal">ふつう<br /><small>4〜6さい</small></label>
+                <input id="difficultyDetailed" type="radio" name="difficulty" value="detailed" />
+                <label for="difficultyDetailed">こまかい<br /><small>6さい〜</small></label>
+              </div>
+            </div>
+
+            <label class="safe-toggle">
+              <input type="checkbox" name="lessScary" value="true" checked />
+              <span class="toggle-box" aria-hidden="true"></span>
+              <span>
+                <strong>こわくしない</strong>
+                <small>ちいさいこでも あんしん</small>
+              </span>
+            </label>
+
+            <label class="field">
+              <span>すとーりー</span>
+              <select name="storyMode">
+                <option value="none" selected>なし</option>
+                <option value="gentle">やさしいものがたり</option>
+                <option value="adventure">わくわくぼうけん</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-grid compact">
+            <label class="field">
+              <span>いくつ だす？</span>
+              <select name="characterCount">
+                <option value="3" selected>3</option>
+                <option value="6">6</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>なんまい だす？</span>
+              <select name="pageCount">
+                <option value="1" selected>1</option>
+                <option value="3">3</option>
+                <option value="5">5</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>せんの ふとさ</span>
+              <select name="lineThickness">
+                <option value="Thick">ふとい</option>
+                <option value="Normal" selected>ふつう</option>
+                <option value="Thin">ほそい</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>はいけい</span>
+              <select name="backgroundAmount">
+                <option value="None">なし</option>
+                <option value="Light">すこし</option>
+                <option value="Rich" selected>たっぷり</option>
+              </select>
+            </label>
+          </div>
+
+          <details class="advanced-options">
+            <summary>こまかく きめる</summary>
+            <label class="field">
+              <span>テーマ（なくてもOK）</span>
+              <input name="theme" type="text" placeholder="もりの なかの どうぶつたち" maxlength="120" />
+            </label>
+            <label class="field">
+              <span>ついかの おねがい</span>
+              <textarea name="extraRequest" rows="3" placeholder="かざんをいれる、もっとシンプルにする"></textarea>
+            </label>
+          </details>
+
+          <button id="generateButton" class="primary-button" type="submit">
+            <span aria-hidden="true">🖍️</span>
+            ぬりえを つくる！
+          </button>
+          <p class="time-note">1まい 20〜40びょう くらい</p>
+          <p id="statusMessage" class="status" role="status" aria-live="polite"></p>
+        </form>
+
+        <section class="results-panel" aria-label="できあがった ぬりえ">
+          <div class="results-toolbar">
+            <div>
+              <p>できあがり</p>
+              <h2>できあがった ぬりえ</h2>
+            </div>
+            <button id="downloadPdfButton" class="secondary-button" type="button" disabled>PDFで まとめて ほぞん 📄</button>
+          </div>
+          <div id="results" class="results-empty">
+            <div class="empty-state">
+              <span aria-hidden="true">🖼️</span>
+              <p>ここに ぬりえが ならびます</p>
+              <small>つくったあと、PNGやPDFでほぞんできます</small>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <template id="pageTemplate">
+      <article class="page-card">
+        <div class="page-preview">
+          <img alt="できあがった ぬりえ" />
+        </div>
+        <div class="page-actions">
+          <strong></strong>
+          <a download>PNGで ほぞん</a>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
