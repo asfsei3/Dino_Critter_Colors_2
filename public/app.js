@@ -7,6 +7,7 @@ const template = document.querySelector('#pageTemplate');
 
 let generatedPages = [];
 let hasGeneratedOnce = false;
+let lastOrientation = 'portrait';
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -18,7 +19,7 @@ form.addEventListener('submit', async (event) => {
     const payload = Object.fromEntries(new FormData(form).entries());
     payload.characterCount = Number(payload.characterCount);
     payload.pageCount = Number(payload.pageCount);
-    payload.lessScary = payload.lessScary === 'true';
+    lastOrientation = payload.orientation || 'portrait';
 
     const response = await fetch('/api/generate', {
       method: 'POST',
@@ -34,7 +35,7 @@ form.addEventListener('submit', async (event) => {
     generatedPages = data.pages || [];
     renderPages(generatedPages);
     hasGeneratedOnce = true;
-    setStatus('ぬりえが できました。');
+    setStatus(`${generatedPages.length}まいの ぬりえが できました。`);
   } catch (error) {
     setStatus(error.message, true);
   } finally {
@@ -81,12 +82,14 @@ function renderPages(pages) {
     const img = node.querySelector('img');
     const title = node.querySelector('strong');
     const link = node.querySelector('a');
+    const card = node.querySelector('.page-card');
 
     img.src = page.image;
     img.alt = `できあがった ぬりえ ${index + 1}`;
     title.textContent = `ぬりえ ${index + 1}`;
     link.href = page.image;
     link.download = `dino-critter-colors-page-${index + 1}.png`;
+    card.classList.toggle('landscape', lastOrientation === 'landscape');
 
     results.appendChild(node);
   });
@@ -140,7 +143,7 @@ function toFriendlyError(message) {
   }
 
   if (message.includes('Gemini did not return')) {
-    return '画像を つくれませんでした。テーマを少しシンプルにして、もういちど試してください。';
+    return '画像を つくれませんでした。テーマを少し かんたんにして、もういちど試してください。';
   }
 
   return 'うまく つくれませんでした。少し待ってから、もういちど試してください。';

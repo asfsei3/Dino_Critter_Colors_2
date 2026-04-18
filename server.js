@@ -44,7 +44,7 @@ app.post('/api/generate', async (req, res) => {
         prompt,
         config: {
           numberOfImages: batchSize,
-          aspectRatio: '3:4',
+          aspectRatio: imageAspectRatio(options.orientation),
           personGeneration: 'dont_allow'
         }
       });
@@ -130,6 +130,7 @@ function sanitizeOptions(body = {}) {
   const allowedAges = ['0-2 years old', '3-4 years old', '5-6 years old', '7+ years old', 'Adults'];
   const allowedDifficulties = ['easy', 'normal', 'detailed'];
   const allowedStoryModes = ['none', 'gentle', 'adventure'];
+  const allowedOrientations = ['portrait', 'landscape'];
 
   const category = pick(allowedCategories, body.category, 'dinosaurs');
   const characterCount = Number(body.characterCount);
@@ -147,8 +148,8 @@ function sanitizeOptions(body = {}) {
     backgroundAmount: pick(allowedBackgrounds, body.backgroundAmount, 'Rich'),
     ageLevel: pick(allowedAges, body.ageLevel, '3-4 years old'),
     difficulty: pick(allowedDifficulties, body.difficulty, 'easy'),
-    lessScary: body.lessScary === true || body.lessScary === 'true' || body.lessScary === 'on',
-    storyMode: pick(allowedStoryModes, body.storyMode, 'none')
+    storyMode: pick(allowedStoryModes, body.storyMode, 'none'),
+    orientation: pick(allowedOrientations, body.orientation, 'portrait')
   };
 }
 
@@ -173,6 +174,10 @@ function defaultThemeForCategory(category) {
   };
 
   return themes[category] || themes.free;
+}
+
+function imageAspectRatio(orientation) {
+  return orientation === 'landscape' ? '4:3' : '3:4';
 }
 
 function buildColoringPrompt(options, offset) {
@@ -209,11 +214,11 @@ function buildColoringPrompt(options, offset) {
 
   const difficultyGuidance = {
     easy:
-      'Difficulty: easy for ages 2 to 4. Use fewer small details, thicker outlines, simple composition, large open coloring spaces, rounded shapes, and minimal visual clutter. Favor easy-to-color forms even if other controls ask for more detail.',
+      'Difficulty: very easy and easy to color. Use very thick bold outlines, much fewer tiny details, very large coloring spaces, simple scene composition, large rounded shapes, less busy background, and only a few clear scene elements. Avoid small textures, dense patterns, crowded objects, and complicated overlapping forms. This easy mode should visibly look simpler, cleaner, and more spacious than normal mode. If line thickness or background settings conflict, prioritize easy coloring, thick lines, and a less busy scene.',
     normal:
-      'Difficulty: normal for ages 4 to 6. Use balanced detail, clear shapes, readable outlines, and a moderate amount of scene elements.',
+      'Difficulty: normal and balanced. Use medium-thick readable outlines, balanced detail, clear shapes, moderate coloring spaces, and a comfortable number of scene elements.',
     detailed:
-      'Difficulty: detailed for ages 6 and up. Add more colorable details, richer scene complexity, varied textures, and thinner lines are allowed, while keeping the page clean and printable.'
+      'Difficulty: detailed. Use thinner clean outlines, richer colorable details, more scene elements, varied textures, smaller parts are allowed, and the background can be more complex. This detailed mode should visibly look richer and more intricate than normal mode, while still staying printable and not cluttered. If line thickness or background settings conflict, allow finer lines and richer details for this mode.'
   };
 
   const storyGuidance = {
@@ -224,9 +229,15 @@ function buildColoringPrompt(options, offset) {
       'Story mode: safe adventure. Make the scene feel adventurous but child-safe, such as exploring a jungle, crossing a shallow river, discovering eggs, following footprints, or walking through a forest. Keep all action friendly and non-dangerous.'
   };
 
-  const safetyGuidance = options.lessScary
-    ? 'Safety tone: make it not scary. Use friendly expressions, non-threatening faces, soft and safe atmosphere, no aggressive poses, no horror feeling, no angry faces, and do not emphasize sharp scary teeth or claws. This is especially important for dinosaurs and wild animals.'
-    : '';
+  const orientationGuidance = {
+    portrait:
+      'Orientation: portrait vertical page layout. Compose the scene taller than wide, suitable for a vertical printable coloring sheet.',
+    landscape:
+      'Orientation: landscape horizontal page layout. Compose the scene wider than tall, suitable for a horizontal printable coloring sheet.'
+  };
+
+  const safetyGuidance =
+    'Always make the page child-safe, friendly, and not scary. Use gentle expressions, non-threatening faces, soft safe atmosphere, no aggressive poses, no horror feeling, no angry faces, no danger, and do not emphasize sharp scary teeth or claws. This applies to every category, especially dinosaurs, wild animals, sea creatures, and adventure scenes.';
 
   return [
     'Create a black and white printable coloring book page for kids.',
@@ -239,6 +250,7 @@ function buildColoringPrompt(options, offset) {
     `Background amount: ${options.backgroundAmount}. ${backgroundGuidance[options.backgroundAmount]}`,
     `Age level: ${options.ageLevel}; use ${ageGuidance[options.ageLevel]}.`,
     difficultyGuidance[options.difficulty],
+    orientationGuidance[options.orientation],
     storyGuidance[options.storyMode],
     safetyGuidance,
     options.extraRequest ? `Additional request: ${options.extraRequest}.` : '',

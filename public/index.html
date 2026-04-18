@@ -50,9 +50,9 @@
             <label class="field">
               <span>ふんいき</span>
               <select name="style">
-                <option value="Realistic">リアル</option>
+                <option value="Realistic">ほんものふう</option>
                 <option value="Storybook style" selected>えほんふう</option>
-                <option value="Simple line art">シンプル</option>
+                <option value="Simple line art">かんたん</option>
                 <option value="Cute style">かわいい</option>
                 <option value="Encyclopedia style">ずかんふう</option>
               </select>
@@ -83,15 +83,6 @@
               </div>
             </div>
 
-            <label class="safe-toggle">
-              <input type="checkbox" name="lessScary" value="true" checked />
-              <span class="toggle-box" aria-hidden="true"></span>
-              <span>
-                <strong>こわくしない</strong>
-                <small>ちいさいこでも あんしん</small>
-              </span>
-            </label>
-
             <label class="field">
               <span>すとーりー</span>
               <select name="storyMode">
@@ -104,7 +95,7 @@
 
           <div class="field-grid compact">
             <label class="field">
-              <span>いくつ だす？</span>
+              <span>えに いくつ いれる？</span>
               <select name="characterCount">
                 <option value="3" selected>3</option>
                 <option value="6">6</option>
@@ -114,11 +105,19 @@
             </label>
 
             <label class="field">
-              <span>なんまい だす？</span>
+              <span>なんまい つくる？</span>
               <select name="pageCount">
                 <option value="1" selected>1</option>
                 <option value="3">3</option>
                 <option value="5">5</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>むき</span>
+              <select name="orientation">
+                <option value="portrait" selected>たて</option>
+                <option value="landscape">よこ</option>
               </select>
             </label>
 
@@ -149,7 +148,7 @@
             </label>
             <label class="field">
               <span>ついかの おねがい</span>
-              <textarea name="extraRequest" rows="3" placeholder="かざんをいれる、もっとシンプルにする"></textarea>
+              <textarea name="extraRequest" rows="3" placeholder="かざんをいれる、もっと ぬりやすくする"></textarea>
             </label>
           </details>
 
