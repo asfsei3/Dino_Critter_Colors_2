@@ -1,5 +1,7 @@
 node_modules
 .env
+.cache
 .DS_Store
 npm-debug.log*
 dist
+.claude

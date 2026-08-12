@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import express from 'express';
 import PDFDocument from 'pdfkit';
 import { GoogleGenAI } from '@google/genai';
@@ -8,7 +11,11 @@ const port = process.env.PORT || 3000;
 const host = process.env.HOST || '0.0.0.0';
 
 const MAX_PAGES = 10;
-const GEMINI_MODEL = process.env.GEMINI_IMAGE_MODEL || 'imagen-4.0-generate-001';
+const GENERATION_CONCURRENCY = Number(process.env.GEMINI_GENERATION_CONCURRENCY) || 3;
+const CACHE_VERSION = 'coloring-page-v3-cost-cache';
+const CACHE_DIR = process.env.IMAGE_CACHE_DIR || path.join(process.cwd(), '.cache', 'generated-images');
+const GEMINI_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+const GEMINI_IMAGE_SIZE = process.env.GEMINI_IMAGE_SIZE || '1K';
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 app.use(express.static('public'));
@@ -19,61 +26,63 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     service: 'Dino & Critter Colors',
     imageModel: GEMINI_MODEL,
+    imageSize: effectiveImageSize(),
     geminiConfigured: Boolean(ai)
   });
 });
 
 app.post('/api/generate', async (req, res) => {
   try {
+    const options = sanitizeOptions(req.body);
+    const cacheKey = createGenerationCacheKey(options);
+    const cachedPages = await readCachedPages(cacheKey);
+
+    if (cachedPages) {
+      return res.json({ pages: cachedPages, cached: true });
+    }
+
     if (!ai) {
       return res.status(400).json({
         error: 'Missing GEMINI_API_KEY. Add it to your Railway variables or local .env file.'
       });
     }
 
-    const options = sanitizeOptions(req.body);
-    const pages = [];
+    const pages = await generatePagesInParallel(options);
 
-    while (pages.length < options.pageCount) {
-      const remaining = options.pageCount - pages.length;
-      const batchSize = Math.min(remaining, 4);
-      const prompt = buildColoringPrompt(options, pages.length);
-
-      const response = await ai.models.generateImages({
-        model: GEMINI_MODEL,
-        prompt,
-        config: {
-          numberOfImages: batchSize,
-          aspectRatio: imageAspectRatio(options.orientation),
-          personGeneration: 'dont_allow'
-        }
-      });
-
-      const generatedImages = response.generatedImages || [];
-      for (const generatedImage of generatedImages) {
-        const imageBytes = generatedImage?.image?.imageBytes;
-        if (imageBytes) {
-          pages.push({
-            id: `page-${pages.length + 1}`,
-            title: `Coloring Page ${pages.length + 1}`,
-            image: `data:image/png;base64,${imageBytes}`,
-            prompt
-          });
-        }
-      }
-
-      if (generatedImages.length === 0) {
-        throw new Error('Gemini did not return an image. Try a simpler theme or request.');
-      }
-    }
-
-    res.json({ pages });
+    await writeCachedPages(cacheKey, pages, options);
+    res.json({ pages, cached: false });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: error.message || 'Unable to generate coloring pages right now.'
     });
   }
+});
+
+app.get('/api/history', async (_req, res) => {
+  try {
+    const entries = await listHistoryEntries();
+    res.json({ entries });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Unable to load history right now.' });
+  }
+});
+
+app.get('/api/history/:cacheKey', async (req, res) => {
+  const cacheKey = req.params.cacheKey;
+
+  if (!/^[a-f0-9]{64}$/.test(cacheKey)) {
+    return res.status(400).json({ error: 'Invalid history id.' });
+  }
+
+  const cachedPages = await readCachedPages(cacheKey);
+
+  if (!cachedPages) {
+    return res.status(404).json({ error: 'History entry not found.' });
+  }
+
+  res.json({ pages: cachedPages });
 });
 
 app.post('/api/pdf', (req, res) => {
@@ -86,8 +95,12 @@ app.post('/api/pdf', (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="dino-critter-colors.pdf"');
 
-  const doc = new PDFDocument({ size: 'LETTER', margin: 36 });
+  const doc = new PDFDocument({ size: 'LETTER', margin: 0 });
   doc.pipe(res);
+
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const margin = 18;
 
   images.forEach((image, index) => {
     if (index > 0) doc.addPage();
@@ -96,13 +109,8 @@ app.post('/api/pdf', (req, res) => {
     const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
     const buffer = Buffer.from(base64, 'base64');
 
-    doc
-      .fontSize(13)
-      .fillColor('#1f2937')
-      .text(`Dino & Critter Colors - Page ${index + 1}`, { align: 'center' });
-
-    doc.image(buffer, 54, 72, {
-      fit: [504, 684],
+    doc.image(buffer, margin, margin, {
+      fit: [pageWidth - margin * 2, pageHeight - margin * 2],
       align: 'center',
       valign: 'center'
     });
@@ -120,11 +128,57 @@ app.listen(port, host, (error) => {
   console.log(`Dino & Critter Colors is running on ${host}:${port}`);
 });
 
+async function generatePagesInParallel(options) {
+  const offsets = Array.from({ length: options.pageCount }, (_, index) => index);
+  const pages = new Array(offsets.length);
+
+  for (let start = 0; start < offsets.length; start += GENERATION_CONCURRENCY) {
+    const chunk = offsets.slice(start, start + GENERATION_CONCURRENCY);
+    const results = await Promise.all(chunk.map((offset) => generateSinglePage(options, offset)));
+
+    chunk.forEach((offset, index) => {
+      pages[offset] = results[index];
+    });
+  }
+
+  return pages;
+}
+
+async function generateSinglePage(options, offset) {
+  const prompt = buildColoringPrompt(options, offset);
+
+  const response = await ai.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: prompt,
+    config: {
+      responseModalities: ['IMAGE'],
+      imageConfig: {
+        aspectRatio: imageAspectRatio(options.orientation),
+        imageSize: GEMINI_IMAGE_SIZE
+      }
+    }
+  });
+
+  const parts = response.candidates?.[0]?.content?.parts || [];
+  const imagePart = parts.find((part) => part.inlineData?.data);
+
+  if (!imagePart) {
+    throw new Error('Gemini did not return an image. Try a simpler theme or request.');
+  }
+
+  return {
+    id: `page-${offset + 1}`,
+    title: `Coloring Page ${offset + 1}`,
+    image: `data:${imagePart.inlineData.mimeType || 'image/png'};base64,${imagePart.inlineData.data}`,
+    prompt
+  };
+}
+
 function sanitizeOptions(body = {}) {
   const allowedCategories = ['dinosaurs', 'animals', 'vehicles', 'nature', 'sea', 'princess', 'free'];
   const allowedStyles = ['Realistic', 'Storybook style', 'Simple line art', 'Cute style', 'Encyclopedia style'];
   const allowedCounts = [3, 6, 10, 15];
-  const allowedPages = [1, 3, 5];
+  const allowedPages = [1, 3, 5, 10];
   const allowedLineThickness = ['Thick', 'Normal', 'Thin'];
   const allowedBackgrounds = ['None', 'Light', 'Rich'];
   const allowedAges = ['0-2 years old', '3-4 years old', '5-6 years old', '7+ years old', 'Adults'];
@@ -176,6 +230,131 @@ function defaultThemeForCategory(category) {
 
 function imageAspectRatio(orientation) {
   return orientation === 'landscape' ? '4:3' : '3:4';
+}
+
+function createGenerationCacheKey(options) {
+  const cachePayload = {
+    cacheVersion: CACHE_VERSION,
+    model: GEMINI_MODEL,
+    imageSize: effectiveImageSize(),
+    category: options.category,
+    style: options.style,
+    difficulty: options.difficulty,
+    characterCount: options.characterCount,
+    pageCount: options.pageCount,
+    orientation: options.orientation,
+    ageLevel: options.ageLevel,
+    backgroundAmount: options.backgroundAmount,
+    lineThickness: options.lineThickness,
+    theme: options.theme,
+    extraRequest: options.extraRequest
+  };
+
+  return createHash('sha256').update(stableStringify(cachePayload)).digest('hex');
+}
+
+async function readCachedPages(cacheKey) {
+  try {
+    const filePath = cacheFilePath(cacheKey);
+    const cacheFile = JSON.parse(await fs.readFile(filePath, 'utf8'));
+
+    if (cacheFile?.cacheVersion !== CACHE_VERSION || !Array.isArray(cacheFile.pages)) {
+      return null;
+    }
+
+    return cacheFile.pages;
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn(`Unable to read image cache ${cacheKey}:`, error.message);
+    }
+
+    return null;
+  }
+}
+
+async function writeCachedPages(cacheKey, pages, options) {
+  try {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+
+    // Simple file-based cache: each unique sanitized request stores the exact
+    // data URLs returned to the browser. A repeat request can skip Gemini
+    // completely and still preserve PNG/PDF download behavior. The summary
+    // fields also power the /api/history gallery so past batches are never
+    // lost as soon as the browser tab closes.
+    await fs.writeFile(
+      cacheFilePath(cacheKey),
+      JSON.stringify(
+        {
+          cacheVersion: CACHE_VERSION,
+          createdAt: new Date().toISOString(),
+          category: options.category,
+          theme: options.theme,
+          style: options.style,
+          pageCount: options.pageCount,
+          pages
+        },
+        null,
+        2
+      )
+    );
+  } catch (error) {
+    // Cache writes should never break generation; they only save future cost.
+    console.warn(`Unable to write image cache ${cacheKey}:`, error.message);
+  }
+}
+
+async function listHistoryEntries() {
+  await fs.mkdir(CACHE_DIR, { recursive: true });
+  const files = await fs.readdir(CACHE_DIR);
+  const entries = [];
+
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+
+    try {
+      const raw = JSON.parse(await fs.readFile(path.join(CACHE_DIR, file), 'utf8'));
+
+      if (raw?.cacheVersion !== CACHE_VERSION || !Array.isArray(raw.pages)) continue;
+
+      entries.push({
+        cacheKey: file.replace(/\.json$/, ''),
+        createdAt: raw.createdAt,
+        category: raw.category,
+        theme: raw.theme,
+        style: raw.style,
+        pageCount: raw.pages.length,
+        thumbnail: raw.pages[0]?.image || null
+      });
+    } catch (error) {
+      console.warn(`Skipping unreadable history entry ${file}:`, error.message);
+    }
+  }
+
+  entries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return entries;
+}
+
+function cacheFilePath(cacheKey) {
+  return path.join(CACHE_DIR, `${cacheKey}.json`);
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(',')}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function effectiveImageSize() {
+  return GEMINI_IMAGE_SIZE;
 }
 
 function buildColoringPrompt(options, offset) {

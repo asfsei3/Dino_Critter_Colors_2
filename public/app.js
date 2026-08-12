@@ -4,6 +4,17 @@ const generateButton = document.querySelector('#generateButton');
 const downloadPdfButton = document.querySelector('#downloadPdfButton');
 const results = document.querySelector('#results');
 const template = document.querySelector('#pageTemplate');
+const historyList = document.querySelector('#historyList');
+
+const categoryLabels = {
+  dinosaurs: 'きょうりゅう',
+  animals: 'どうぶつ',
+  vehicles: 'のりもの',
+  nature: 'はな・しぜん',
+  sea: 'うみのいきもの',
+  princess: 'おひめさま・おしろ',
+  free: 'じゆう'
+};
 
 let generatedPages = [];
 let hasGeneratedOnce = false;
@@ -36,6 +47,7 @@ form.addEventListener('submit', async (event) => {
     renderPages(generatedPages);
     hasGeneratedOnce = true;
     setStatus(`${generatedPages.length}まいの ぬりえが できました。`);
+    loadHistory();
   } catch (error) {
     setStatus(error.message, true);
   } finally {
@@ -132,6 +144,65 @@ function triggerDownload(url, filename) {
   link.click();
   link.remove();
 }
+
+async function loadHistory() {
+  try {
+    const response = await fetch('/api/history');
+    const data = await response.json();
+    renderHistory(data.entries || []);
+  } catch (error) {
+    // History is a convenience feature; failing to load it should not block the app.
+    console.warn('Unable to load history', error);
+  }
+}
+
+function renderHistory(entries) {
+  historyList.innerHTML = '';
+
+  entries.forEach((entry) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'history-card';
+
+    const img = document.createElement('img');
+    img.src = entry.thumbnail || '';
+    img.alt = entry.theme || entry.category || 'ぬりえ';
+    card.appendChild(img);
+
+    const label = document.createElement('small');
+    const categoryLabel = categoryLabels[entry.category] || entry.category || '';
+    const dateLabel = entry.createdAt ? new Date(entry.createdAt).toLocaleString('ja-JP') : '';
+    label.textContent = `${categoryLabel} ${entry.pageCount}まい\n${dateLabel}`;
+    card.appendChild(label);
+
+    card.addEventListener('click', () => loadHistoryEntry(entry.cacheKey));
+    historyList.appendChild(card);
+  });
+}
+
+async function loadHistoryEntry(cacheKey) {
+  setStatus('きろくを よみこんでいます。');
+
+  try {
+    const response = await fetch(`/api/history/${cacheKey}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(toFriendlyError(data.error || 'Unable to load history entry.'));
+    }
+
+    generatedPages = data.pages || [];
+    renderPages(generatedPages);
+    hasGeneratedOnce = true;
+    setLoading(false);
+    setStatus(`きろくから ${generatedPages.length}まい よみこみました。`);
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+}
+
+loadHistory();
 
 function toFriendlyError(message) {
   if (message.includes('GEMINI_API_KEY')) {
